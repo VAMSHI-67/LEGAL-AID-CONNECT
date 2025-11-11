@@ -53,39 +53,26 @@ router.get('/', async (req, res) => {
 });
 
 // @route   GET /api/lawyers/matches
-// @desc    Get matched lawyers for a case
+// @desc    Get matched lawyers for a case using matchmaking algorithm
 // @access  Private
 router.get('/matches', auth, async (req, res) => {
   try {
-    const { caseId } = req.query;
-    
+    const { caseId, limit } = req.query;
     if (!caseId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Case ID is required'
-      });
+      return res.status(400).json({ success: false, message: 'caseId is required' });
     }
-
-    // For now, return basic lawyer matches
-    // In a full implementation, you would use the matchmaking algorithm
-    const lawyers = await User.find({ 
-      role: 'lawyer', 
-      isActive: true,
-      availability: { $ne: 'unavailable' }
-    })
-    .select('-password -verificationToken -resetPasswordToken')
-    .limit(10);
-
-    res.json({
-      success: true,
-      data: lawyers
-    });
+    const Case = require('../models/Case');
+    const caseDoc = await Case.findById(caseId);
+    if (!caseDoc) return res.status(404).json({ success: false, message: 'Case not found' });
+    // Authorization: client owner, assigned lawyer, or admin
+    if (caseDoc.clientId.toString() !== req.user._id.toString() && (!caseDoc.lawyerId || caseDoc.lawyerId.toString() !== req.user._id.toString()) && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to view matches for this case' });
+    }
+    const matches = await matchmaking.findMatchedLawyers(caseDoc.toObject(), parseInt(limit) || 10, { includeUnverified: true });
+    res.json({ success: true, data: matches });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
+    console.error('Match retrieval error:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 

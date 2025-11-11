@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Notification } from '@/types';
 import axios from 'axios';
+import { getApiUrl } from '@/utils/api';
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -67,7 +68,7 @@ const initialState: NotificationState = {
   unreadCount: 0,
 };
 
-export const NotificationProvider: React.FC<{ children: any }> = ({ children }) => {
+export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(notificationReducer, initialState);
 
   const fetchNotifications = async () => {
@@ -75,7 +76,7 @@ export const NotificationProvider: React.FC<{ children: any }> = ({ children }) 
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await axios.get('/api/notifications', {
+      const response = await axios.get(getApiUrl('notifications'), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -92,7 +93,7 @@ export const NotificationProvider: React.FC<{ children: any }> = ({ children }) 
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axios.put(`/api/notifications/${notificationId}/read`, {}, {
+      await axios.put(getApiUrl(`notifications/${notificationId}/read`), {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -107,7 +108,7 @@ export const NotificationProvider: React.FC<{ children: any }> = ({ children }) 
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      await axios.put('/api/notifications/read-all', {}, {
+      await axios.put(getApiUrl('notifications/read-all'), {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

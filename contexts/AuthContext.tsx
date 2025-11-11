@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { User, AuthState, LoginForm, RegisterForm } from '@/types';
 import axios from 'axios';
+import { getApiUrl } from '@/utils/api';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginForm) => Promise<void>;
@@ -58,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const verifyToken = async (token: string) => {
     try {
-      const response = await axios.get('/api/auth/verify', {
+      const response = await axios.get(getApiUrl('auth/verify'), {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -69,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         dispatch({ type: 'LOGOUT' });
       }
     } catch (error) {
+      console.error('Token verification failed:', error);
       localStorage.removeItem('token');
       dispatch({ type: 'LOGOUT' });
     }
@@ -78,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      const response = await axios.post('/api/auth/login', credentials);
+      const response = await axios.post(getApiUrl('auth/login'), credentials);
       
       if (response.data.success) {
         const { token, user } = response.data.data;
@@ -90,15 +92,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      throw new Error(error.response?.data?.message || 'Login failed');
+      
+      if (error.code === 'NETWORK_ERROR' || !error.response) {
+        throw new Error('Network error. Please check your internet connection.');
+      }
+      
+      if (error.response?.status === 401) {
+        throw new Error('Invalid email or password.');
+      }
+      
+      throw new Error(error.response?.data?.message || 'Login failed. Please try again.');
     }
   };
 
   const register = async (userData: RegisterForm) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      
-      const response = await axios.post('/api/auth/register', userData);
+      // Transform payload for backend expectations (experience naming, name composition)
+      const payload: any = { ...userData };
+      if (userData.role === 'lawyer') {
+        if (userData.yearsOfExperience !== undefined && payload.experience === undefined) {
+          payload.experience = userData.yearsOfExperience;
+        }
+      }
+      // Backend expects either name or firstName+lastName. We already send first/last, so fine.
+      const response = await axios.post(getApiUrl('auth/register'), payload);
       
       if (response.data.success) {
         const { token, user } = response.data.data;
@@ -110,7 +128,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error: any) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      throw new Error(error.response?.data?.message || 'Registration failed');
+      
+      if (error.code === 'NETWORK_ERROR' || !error.response) {
+        throw new Error('Network error. Please check your internet connection.');
+      }
+      
+      if (error.response?.status === 409) {
+        throw new Error('An account with this email already exists.');
+      }
+      
+  // Prefer backend detailed error if available
+  throw new Error(error.response?.data?.error || error.response?.data?.message || 'Registration failed. Please try again.');
     }
   };
 

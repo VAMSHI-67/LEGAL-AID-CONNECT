@@ -1,9 +1,15 @@
 // User Types
 export interface User {
   _id: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  name: string;
-  phone?: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  dateOfBirth: string;
   role: 'client' | 'lawyer' | 'admin';
   avatar?: string;
   isVerified: boolean;
@@ -13,33 +19,25 @@ export interface User {
 
 export interface Client extends User {
   role: 'client';
-  location: {
-    state: string;
-    district: string;
-    city?: string;
-  };
-  language: string[];
   cases: string[]; // Case IDs
 }
 
 export interface Lawyer extends User {
   role: 'lawyer';
   barNumber: string;
-  specialization: LegalDomain[];
-  experience: number; // years
-  location: {
-    state: string;
-    district: string;
-    city?: string;
-  };
+  barState: string;
+  yearsOfExperience: number;
+  specialization: string[];
+  lawSchool: string;
+  graduationYear: string;
   languages: string[];
+  education?: string;
   availability: 'available' | 'busy' | 'unavailable';
   rating: number;
   totalCases: number;
   completedCases: number;
   hourlyRate?: number;
   bio?: string;
-  education?: string[];
   certifications?: string[];
   cases: string[]; // Case IDs
 }
@@ -81,6 +79,7 @@ export interface Case {
   clientId: string;
   lawyerId?: string;
   status: CaseStatus;
+  lawyerAccepted?: boolean; // whether assigned lawyer accepted engagement
   priority: 'low' | 'medium' | 'high' | 'urgent';
   location: {
     state: string;
@@ -98,6 +97,19 @@ export interface Case {
     currency: string;
   };
   tags: string[];
+  matchInfo?: {
+    score: number;
+    reasons: string[];
+    assignedAt?: Date;
+  };
+  assignmentHistory?: Array<{
+    lawyerId: string;
+    score?: number;
+    reasons?: string[];
+    assignedAt?: Date;
+    unassignedAt?: Date;
+    reason?: string;
+  }>;
 }
 
 export type CaseStatus = 
@@ -174,12 +186,27 @@ export interface LoginForm {
 }
 
 export interface RegisterForm {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
-  confirmPassword: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  dateOfBirth: string;
   role: 'client' | 'lawyer';
-  phone?: string;
+  // Lawyer-specific fields
+  barNumber?: string;
+  barState?: string;
+  yearsOfExperience?: number;
+  specialization?: string[];
+  education?: string;
+  lawSchool?: string;
+  graduationYear?: string;
+  languages?: string[];
+  agreeToTerms: boolean;
 }
 
 export interface CaseForm {
@@ -197,7 +224,8 @@ export interface CaseForm {
     max: number;
     currency: string;
   };
-  tags: string[];
+  tags: string[] | string;
+  estimatedDuration?: number;
 }
 
 export interface LawyerProfileForm {

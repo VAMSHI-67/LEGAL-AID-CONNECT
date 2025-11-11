@@ -1,0 +1,19 @@
+stages:
+  train:
+    cmd: python mlops/scripts/retrain_model.py
+    deps:
+      - mlops/scripts/retrain_model.py
+      - mlops/scripts/utils.py
+      - mlops/data/matchmaking_dataset.csv
+    outs:
+      - mlops/models
+    metrics:
+      - mlops/tracking/last_metrics.json
+  evaluate:
+    cmd: python mlops/scripts/evaluate_model.py
+    deps:
+      - mlops/scripts/evaluate_model.py
+      - mlops/scripts/utils.py
+      - mlops/models
+    outs:
+      - mlops/reports

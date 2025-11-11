@@ -55,17 +55,23 @@ class MatchmakingAlgorithm {
    */
   calculateDomainMatch(lawyerSpecializations, caseCategory) {
     if (!lawyerSpecializations || !caseCategory) return 0;
+    const norm = (s) => (s || '').trim().toLowerCase();
+    const canonicalCase = norm(caseCategory);
+    const normalizedSpecs = lawyerSpecializations.map(s => norm(s));
 
-    // Exact match gets full score
-    if (lawyerSpecializations.includes(caseCategory)) {
-      return 100;
-    }
+    // Allow specialization values that omit trailing ' law' or have different casing
+    const variants = new Set();
+    normalizedSpecs.forEach(s => {
+      variants.add(s);
+      if (!s.endsWith(' law')) variants.add(s + ' law');
+      if (s.endsWith(' law')) variants.add(s.replace(/ law$/, ''));
+    });
+
+    if (variants.has(canonicalCase)) return 100;
 
     // Check for related domains (you can expand this mapping)
-    const relatedDomains = this.getRelatedDomains(caseCategory);
-    const relatedMatches = lawyerSpecializations.filter(spec => 
-      relatedDomains.includes(spec)
-    );
+    const relatedDomains = this.getRelatedDomains(caseCategory).map(norm);
+    const relatedMatches = [...variants].filter(v => relatedDomains.includes(v));
 
     if (relatedMatches.length > 0) {
       return 75; // Good match for related domains
@@ -82,24 +88,16 @@ class MatchmakingAlgorithm {
    */
   calculateLocationProximity(lawyerLocation, caseLocation) {
     if (!lawyerLocation || !caseLocation) return 0;
+    const lState = (lawyerLocation.state || '').toLowerCase().replace(/\s+state$/i,'');
+    const cState = (caseLocation.state || '').toLowerCase().replace(/\s+state$/i,'');
+    const lDistrict = (lawyerLocation.district || '').toLowerCase();
+    const cDistrict = (caseLocation.district || '').toLowerCase();
 
-    // Exact district match
-    if (lawyerLocation.district === caseLocation.district) {
-      return 100;
-    }
-
-    // Same state match
-    if (lawyerLocation.state === caseLocation.state) {
-      return 70;
-    }
-
-    // Neighboring states (you can expand this mapping)
-    const neighboringStates = this.getNeighboringStates(caseLocation.state);
-    if (neighboringStates.includes(lawyerLocation.state)) {
-      return 40;
-    }
-
-    return 10; // Minimum score for any location
+    if (lDistrict && cDistrict && lDistrict === cDistrict) return 100;
+    if (lState && cState && lState === cState) return 70;
+    const neighbors = this.getNeighboringStates(caseLocation.state || '').map(s => s.toLowerCase());
+    if (neighbors.includes(lState)) return 40;
+    return 10;
   }
 
   /**
@@ -212,29 +210,26 @@ class MatchmakingAlgorithm {
    * @param {Number} limit - Number of matches to return
    * @returns {Array} Array of matched lawyers with scores
    */
-  async findMatchedLawyers(caseData, limit = 10) {
+  async findMatchedLawyers(caseData, limit = 10, options = {}) {
     try {
-      // Build query for eligible lawyers
-      const query = {
-        role: 'lawyer',
-        isActive: true,
-        isVerified: true
-      };
-
-      // Add location filter if specified
-      if (caseData.location) {
-        if (caseData.location.state) {
-          query['location.state'] = caseData.location.state;
-        }
-      }
-
-      // Add availability filter
+      // Base query (avoid over-restrictive pre-filter on state)
+      const query = { role: 'lawyer', isActive: true };
+      if (!options.includeUnverified) query.isVerified = true;
       query.availability = { $ne: 'unavailable' };
 
-      // Find eligible lawyers
-      const eligibleLawyers = await User.find(query)
+      let eligibleLawyers = await User.find(query)
         .select('-password -verificationToken -resetPasswordToken')
-        .limit(50); // Limit initial search
+        .limit(200);
+
+      // Soft prioritize same-state first if large pool
+      if (caseData.location?.state && eligibleLawyers.length > 60) {
+        const targetState = caseData.location.state.toLowerCase();
+        const same = eligibleLawyers.filter(l => l.location?.state && l.location.state.toLowerCase() === targetState);
+        if (same.length) {
+          const rest = eligibleLawyers.filter(l => !same.includes(l));
+            eligibleLawyers = [...same, ...rest];
+        }
+      }
 
       // Calculate scores for each lawyer
       const scoredLawyers = eligibleLawyers.map(lawyer => {
@@ -248,10 +243,22 @@ class MatchmakingAlgorithm {
       });
 
       // Sort by score and return top matches
-      return scoredLawyers
-        .filter(match => match.score > 30) // Minimum threshold
+      const primary = scoredLawyers
+        .filter(match => match.score >= 25)
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
+
+      if (primary.length > 0) return primary;
+
+      // Fallback: if no lawyer meets threshold, return lowest scored top N with a neutral reason
+      const fallback = scoredLawyers
+        .sort((a, b) => b.score - a.score)
+        .slice(0, Math.min(limit, 5))
+        .map(m => ({
+          ...m,
+          matchReasons: m.matchReasons.length ? m.matchReasons : ['Baseline eligibility (low score)']
+        }));
+      return fallback;
 
     } catch (error) {
       console.error('Error in findMatchedLawyers:', error);

@@ -1,0 +1,1 @@
+export default function Contact() { return <div className='p-8 max-w-3xl mx-auto'><h1 className='text-2xl font-semibold mb-4'>Contact Us</h1><p className='text-gray-600'>Reach us at support@legalaidconnect.com (placeholder).</p></div>; }

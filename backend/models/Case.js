@@ -252,6 +252,26 @@ const caseSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Matchmaking metadata (optional, added after initial schema)
+caseSchema.add({
+  matchInfo: {
+    score: { type: Number, min: 0, max: 100 },
+    reasons: [{ type: String }],
+    assignedAt: { type: Date }
+  },
+  assignmentHistory: [
+    {
+      lawyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      score: Number,
+      reasons: [String],
+      assignedAt: Date,
+      unassignedAt: Date,
+      reason: String
+    }
+  ],
+  lawyerAccepted: { type: Boolean, default: false }
+});
+
 // Indexes
 caseSchema.index({ clientId: 1 });
 caseSchema.index({ lawyerId: 1 });

@@ -21,7 +21,10 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="loading-spinner"></div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="loading-spinner"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -35,10 +38,29 @@ export default function Dashboard() {
       <div className="card-hover">
         <div className="flex items-center">
           <FileText className="w-8 h-8 text-primary-600" />
+          <h3 className="ml-3 text-lg font-semibold">Create New Case</h3>
+        </div>
+        <p className="mt-2 text-gray-600">Register your legal case and find the right lawyer</p>
+        <button 
+          onClick={() => router.push('/cases/create')}
+          className="mt-4 btn-primary"
+        >
+          Create Case
+        </button>
+      </div>
+
+      <div className="card-hover">
+        <div className="flex items-center">
+          <FileText className="w-8 h-8 text-primary-600" />
           <h3 className="ml-3 text-lg font-semibold">My Cases</h3>
         </div>
         <p className="mt-2 text-gray-600">View and manage your legal cases</p>
-        <button className="mt-4 btn-primary">View Cases</button>
+        <button 
+          onClick={() => router.push('/cases')}
+          className="mt-4 btn-primary"
+        >
+          View Cases
+        </button>
       </div>
 
       <div className="card-hover">
@@ -47,7 +69,12 @@ export default function Dashboard() {
           <h3 className="ml-3 text-lg font-semibold">Find Lawyers</h3>
         </div>
         <p className="mt-2 text-gray-600">Search for qualified legal professionals</p>
-        <button className="mt-4 btn-primary">Search Lawyers</button>
+        <button 
+          onClick={() => router.push('/lawyers')}
+          className="mt-4 btn-primary"
+        >
+          Search Lawyers
+        </button>
       </div>
 
       <div className="card-hover">
@@ -56,7 +83,12 @@ export default function Dashboard() {
           <h3 className="ml-3 text-lg font-semibold">Messages</h3>
         </div>
         <p className="mt-2 text-gray-600">Communicate with your lawyers</p>
-        <button className="mt-4 btn-primary">Open Messages</button>
+        <button 
+          onClick={() => router.push('/messages')}
+          className="mt-4 btn-primary"
+        >
+          Open Messages
+        </button>
       </div>
     </div>
   );
@@ -69,7 +101,7 @@ export default function Dashboard() {
           <h3 className="ml-3 text-lg font-semibold">Case Requests</h3>
         </div>
         <p className="mt-2 text-gray-600">Review and accept new case requests</p>
-        <button className="mt-4 btn-primary">View Requests</button>
+  <button onClick={() => router.push('/dashboard/lawyer/requests')} className="mt-4 btn-primary">View Requests</button>
       </div>
 
       <div className="card-hover">
@@ -78,7 +110,7 @@ export default function Dashboard() {
           <h3 className="ml-3 text-lg font-semibold">Active Cases</h3>
         </div>
         <p className="mt-2 text-gray-600">Manage your ongoing cases</p>
-        <button className="mt-4 btn-primary">View Cases</button>
+  <button onClick={() => router.push('/dashboard/lawyer/cases')} className="mt-4 btn-primary">View Cases</button>
       </div>
 
       <div className="card-hover">
@@ -87,7 +119,7 @@ export default function Dashboard() {
           <h3 className="ml-3 text-lg font-semibold">Client Messages</h3>
         </div>
         <p className="mt-2 text-gray-600">Respond to client inquiries</p>
-        <button className="mt-4 btn-primary">Open Messages</button>
+  <button onClick={() => router.push('/dashboard/lawyer/messages')} className="mt-4 btn-primary">Open Messages</button>
       </div>
     </div>
   );
@@ -144,7 +176,7 @@ export default function Dashboard() {
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
                   <span className="text-sm font-medium text-primary-700">
-                    {user?.name?.charAt(0).toUpperCase()}
+                    {user?.firstName?.charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <button
@@ -164,7 +196,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {user?.name}!
+            Welcome back, {user?.firstName} {user?.lastName}!
           </h1>
           <p className="mt-2 text-gray-600">
             {user?.role === 'client' && 'Manage your legal cases and connect with lawyers'}

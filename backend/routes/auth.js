@@ -5,6 +5,20 @@ const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
+let transporter = null;
+try {
+  if (process.env.EMAIL_HOST && process.env.EMAIL_USER) {
+    const nodemailer = require('nodemailer');
+    transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+  }
+} catch (e) {
+  console.warn('Email transporter setup failed:', e.message);
+}
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -17,7 +31,19 @@ const generateToken = (userId) => {
 // @desc    Register a new user
 // @access  Public
 router.post('/register', [
+  // Handle both old format (name) and new format (firstName + lastName)
+  body('firstName')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('First name must be between 2 and 50 characters'),
+  body('lastName')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Last name must be between 2 and 50 characters'),
   body('name')
+    .optional()
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Name must be between 2 and 100 characters'),
@@ -34,20 +60,70 @@ router.post('/register', [
   body('phone')
     .optional()
     .matches(/^[\+]?[1-9][\d]{0,15}$/)
-    .withMessage('Please enter a valid phone number')
+    .withMessage('Please enter a valid phone number'),
+  body('address')
+    .optional()
+    .trim()
+    .isLength({ min: 5, max: 200 })
+    .withMessage('Address must be between 5 and 200 characters'),
+  body('city')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('City must be between 2 and 100 characters'),
+  body('state')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('State must be between 2 and 100 characters'),
+  body('zipCode')
+    .optional()
+    .trim()
+    .matches(/^[0-9]{5,10}$/)
+    .withMessage('Please enter a valid zip code'),
+  body('dateOfBirth')
+    .optional()
+    .isISO8601()
+    .withMessage('Please enter a valid date of birth')
 ], async (req, res) => {
   try {
+    // Enhanced logging for debugging
+    console.log('🔍 Registration request received:', {
+      body: req.body,
+      headers: req.headers,
+      timestamp: new Date().toISOString()
+    });
+
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         message: 'Validation Error',
-        error: errors.array().map(err => err.msg).join(', ')
+        error: errors.array().map(err => `${err.path}: ${err.msg}`).join(', ')
       });
     }
 
-    const { name, email, password, role, phone, location } = req.body;
+    // Handle both data formats (legacy and new)
+    let { 
+      firstName, lastName, name, email, password, role, phone, address, city, state, zipCode, dateOfBirth,
+      // Lawyer specific (frontend may send yearsOfExperience instead of experience)
+      barNumber, barState, specialization, experience, yearsOfExperience, languages
+    } = req.body;
+    
+    // Convert firstName + lastName to name if using new format
+    if (firstName && lastName) {
+      name = `${firstName} ${lastName}`.trim();
+    }
+    
+    // Ensure name exists
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name is required (either provide "name" or "firstName" + "lastName")'
+      });
+    }
 
     // Check if user already exists
     const existingUser = await User.findByEmail(email);
@@ -58,8 +134,8 @@ router.post('/register', [
       });
     }
 
-    // Create user object
-    const userData = {
+    // Create user object with enhanced data handling
+  const userData = {
       name,
       email,
       password,
@@ -67,10 +143,35 @@ router.post('/register', [
       phone
     };
 
-    // Add location if provided
-    if (location) {
-      userData.location = location;
+    // Add location data if provided (convert from frontend format)
+    if (state || city) {
+      userData.location = {
+        state: state || '',
+        district: city || '', // Using city as district for now
+        city: city || ''
+      };
     }
+
+    // Add additional fields if provided
+    if (address) userData.address = address;
+    if (zipCode) userData.zipCode = zipCode;
+    if (dateOfBirth) userData.dateOfBirth = dateOfBirth;
+
+    // Attach lawyer-specific fields if role is lawyer
+    if (role === 'lawyer') {
+      // Map yearsOfExperience -> experience if needed
+      const resolvedExperience = typeof experience === 'number' ? experience : (
+        typeof yearsOfExperience === 'number' ? yearsOfExperience : undefined
+      );
+
+      if (barNumber) userData.barNumber = barNumber;
+      if (barState) userData.barState = barState;
+      if (Array.isArray(specialization) && specialization.length) userData.specialization = specialization;
+      if (typeof resolvedExperience === 'number') userData.experience = resolvedExperience;
+      if (Array.isArray(languages) && languages.length) userData.languages = languages;
+    }
+
+  console.log('🔧 Creating user with data:', userData);
 
     // Create new user
     const user = new User(userData);
@@ -286,14 +387,24 @@ router.post('/forgot-password', [
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    // TODO: Send email with reset link
-    // For now, just return the token (in production, send via email)
+    if (transporter) {
+      const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?token=${resetToken}`;
+      try {
+        await transporter.sendMail({
+          from: `LegalAid Connect <${process.env.EMAIL_USER}>`,
+          to: email,
+            subject: 'Password Reset Request',
+            html: `<p>You requested a password reset.</p><p>Click <a href="${resetUrl}">here</a> to reset your password. This link expires in 1 hour.</p>`
+        });
+      } catch (mailErr) {
+        console.warn('Password reset email send failed:', mailErr.message);
+      }
+    }
+
     res.json({
       success: true,
-      message: 'Password reset email sent',
-      data: {
-        resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
-      }
+      message: 'Password reset request processed',
+      data: { resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined }
     });
 
   } catch (error) {

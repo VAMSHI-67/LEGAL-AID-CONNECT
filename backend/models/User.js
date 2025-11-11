@@ -14,7 +14,8 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    // Updated regex: allow modern TLDs (>3 chars) and hyphens in domain segments
+    match: [/^[\w.+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/ , 'Please enter a valid email']
   },
   password: {
     type: String,
@@ -44,15 +45,36 @@ const userSchema = new mongoose.Schema({
     default: true
   },
   
+  // Additional user fields
+  address: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Address cannot exceed 200 characters']
+  },
+  zipCode: {
+    type: String,
+    trim: true,
+    match: [/^[0-9]{5,10}$/, 'Please enter a valid zip code']
+  },
+  dateOfBirth: {
+    type: Date,
+    validate: {
+      validator: function(v) {
+        return v <= new Date();
+      },
+      message: 'Date of birth cannot be in the future'
+    }
+  },
+  
   // Client specific fields
   location: {
     state: {
       type: String,
-      required: function() { return this.role === 'client' || this.role === 'lawyer'; }
+      required: false // Made optional for now
     },
     district: {
       type: String,
-      required: function() { return this.role === 'client' || this.role === 'lawyer'; }
+      required: false // Made optional for now
     },
     city: String
   },
@@ -65,7 +87,14 @@ const userSchema = new mongoose.Schema({
   barNumber: {
     type: String,
     required: function() { return this.role === 'lawyer'; },
-    unique: function() { return this.role === 'lawyer'; }
+    // Removed inline unique because it creates a global unique index including nulls.
+    // A proper partial unique index is declared below.
+  },
+  // Added barState to capture jurisdiction (present in frontend form)
+  barState: {
+    type: String,
+    required: function() { return this.role === 'lawyer'; },
+    trim: true
   },
   specialization: {
     type: [String],
@@ -170,12 +199,16 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes
-userSchema.index({ email: 1 });
+// Indexes (email already has a unique index via schema definition; avoid duplicate)
 userSchema.index({ role: 1 });
 userSchema.index({ 'location.state': 1, 'location.district': 1 });
 userSchema.index({ specialization: 1 });
 userSchema.index({ availability: 1 });
+// Partial unique index for barNumber only when role is lawyer and barNumber is a string
+userSchema.index(
+  { barNumber: 1 },
+  { unique: true, partialFilterExpression: { role: 'lawyer', barNumber: { $type: 'string' } } }
+);
 userSchema.index({ rating: -1 });
 
 // Virtual for success rate

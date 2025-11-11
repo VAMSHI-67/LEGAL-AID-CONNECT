@@ -1,0 +1,16 @@
+[
+  {
+    "title": "Land Dispute in Hyderabad",
+    "description": "A dispute over agricultural land ownership.",
+    "client": "John Doe",
+    "lawyer": "Jane Smith",
+    "status": "open"
+  },
+  {
+    "title": "Startup IP Rights",
+    "description": "Intellectual property rights for a new tech startup.",
+    "client": "Acme Corp",
+    "lawyer": "Rajiv Kumar",
+    "status": "closed"
+  }
+]

@@ -1,0 +1,1 @@
+export default function Careers() { return <div className='p-8 max-w-3xl mx-auto'><h1 className='text-2xl font-semibold mb-4'>Careers</h1><p className='text-gray-600'>Careers page placeholder.</p></div>; }

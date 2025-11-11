@@ -1,0 +1,1 @@
+export default function About() { return <div className='p-8 max-w-3xl mx-auto'><h1 className='text-2xl font-semibold mb-4'>About Us</h1><p className='text-gray-600'>Placeholder About page. Add company mission, vision, and team details here.</p></div>; }

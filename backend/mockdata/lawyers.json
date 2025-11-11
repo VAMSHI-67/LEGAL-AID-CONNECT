@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Jane Smith",
+    "specialization": "Property Law",
+    "location": "Hyderabad",
+    "verified": true
+  },
+  {
+    "name": "Rajiv Kumar",
+    "specialization": "Intellectual Property",
+    "location": "Bangalore",
+    "verified": true
+  }
+]

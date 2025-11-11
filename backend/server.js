@@ -6,38 +6,39 @@ const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const path = require('path');
 
-// Load environment variables
-dotenv.config();
+// ✅ Always load backend .env first
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Simple environment check
+if (!process.env.MONGODB_URI) {
+  console.error('❌ MONGODB_URI is not set in backend/.env');
+  console.error('   Please check your .env file in the backend directory');
+  if (process.env.NODE_ENV === 'production') process.exit(1);
+}
 
 const app = express();
+const http = require('http');
+const server = http.createServer(app);
+const { Server } = require('socket.io');
 const PORT = process.env.PORT || 5000;
-
-// Import routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const caseRoutes = require('./routes/cases');
-const lawyerRoutes = require('./routes/lawyers');
-const adminRoutes = require('./routes/admin');
-const notificationRoutes = require('./routes/notifications');
-const chatRoutes = require('./routes/chat');
-const uploadRoutes = require('./routes/upload');
 
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
+// Rate limiting for API
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: 'Too many requests from this IP, please try again later.'
 });
-app.use('/api/', limiter);
+app.use('/api', limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : ['http://localhost:3000'],
+  origin:
+    process.env.NODE_ENV === 'production'
+      ? [process.env.FRONTEND_URL]
+      : ['http://localhost:3000'], // Frontend runs on port 3000
   credentials: true
 }));
 
@@ -45,69 +46,102 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files
+// Request logging middleware for debugging
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    console.log('📥 API Request:', {
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      headers: {
+        'content-type': req.headers['content-type'],
+        'user-agent': req.headers['user-agent']
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+  next();
+});
+
+// Serve static files for uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('✅ Connected to MongoDB');
-})
-.catch((error) => {
-  console.error('❌ MongoDB connection error:', error);
-  process.exit(1);
-});
+// MongoDB Connection
+mongoose
+  .connect(process.env.MONGODB_URI, { autoIndex: true })
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err.message);
+    if (process.env.NODE_ENV === 'production') process.exit(1);
+  });
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'LegalAid Connect API is running',
     timestamp: new Date().toISOString()
   });
 });
 
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/cases', caseRoutes);
-app.use('/api/lawyers', lawyerRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/upload', uploadRoutes);
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/cases', require('./routes/cases'));
+app.use('/api/lawyers', require('./routes/lawyers'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/chat', require('./routes/chat'));
+app.use('/api/upload', require('./routes/upload'));
+app.use('/api/ml-match', require('./routes/mlMatch'));
+// New feature routes
+app.use('/api/booking', require('./routes/booking'));
+app.use('/api/availability', require('./routes/availability'));
+app.use('/api/moderation', require('./routes/moderation'));
+app.use('/api/alerts', require('./routes/alerts'));
+app.use('/api/payment', require('./routes/payment'));
 
-// Error handling middleware
+// Error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  
+  // Enhanced error logging
+  console.error('🚨 Error occurred:', {
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    body: req.body,
+    timestamp: new Date().toISOString()
+  });
+
   if (err.name === 'ValidationError') {
+    const validationErrors = Object.values(err.errors).map((e) => `${e.path}: ${e.message}`);
+    console.log('❌ Validation errors:', validationErrors);
     return res.status(400).json({
       success: false,
       message: 'Validation Error',
-      error: Object.values(err.errors).map(e => e.message).join(', ')
+      error: validationErrors.join(', ')
     });
   }
-  
+
   if (err.name === 'CastError') {
+    console.log('❌ Cast error:', err.message);
     return res.status(400).json({
       success: false,
       message: 'Invalid ID format',
       error: err.message
     });
   }
-  
+
   if (err.code === 11000) {
+    console.log('❌ Duplicate key error:', err.message);
     return res.status(400).json({
       success: false,
       message: 'Duplicate field value',
       error: 'This value already exists'
     });
   }
-  
+
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
@@ -124,28 +158,46 @@ app.use('*', (req, res) => {
   });
 });
 
+// Socket.io setup
+const io = new Server(server, {
+  cors: {
+    origin: process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : 'http://localhost:3000',
+    methods: ['GET', 'POST']
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('🔌 Client connected:', socket.id);
+  socket.on('join_case', (caseId) => {
+    socket.join(`case_${caseId}`);
+  });
+  socket.on('message_case', ({ caseId, content, meta }) => {
+    io.to(`case_${caseId}`).emit('case_message', { content, caseId, meta, ts: Date.now() });
+  });
+  socket.on('disconnect', () => console.log('❌ Client disconnected', socket.id));
+});
+
+// Make io accessible in routes via req.app.get('io')
+app.set('io', io);
+
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 API URL: http://localhost:${PORT}/api`);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  mongoose.connection.close(() => {
-    console.log('MongoDB connection closed');
-    process.exit(0);
+['SIGTERM', 'SIGINT'].forEach((signal) => {
+  process.on(signal, () => {
+    console.log(`${signal} received, shutting down gracefully`);
+    server.close(() => {
+      mongoose.connection.close(() => {
+      console.log('MongoDB connection closed');
+      process.exit(0);
+    });
+  });
   });
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  mongoose.connection.close(() => {
-    console.log('MongoDB connection closed');
-    process.exit(0);
-  });
-});
-
-module.exports = app; 
+module.exports = app;
