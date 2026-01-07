@@ -100,7 +100,7 @@ LegalAid Connect addresses the challenges many individuals face in finding legal
    npm run dev
    
    # Run backend only
-   npm run server:dev
+    
    
    # Run both frontend and backend
    npm run dev:full
