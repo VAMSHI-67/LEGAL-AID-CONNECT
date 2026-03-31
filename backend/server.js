@@ -100,6 +100,7 @@ app.use('/api/availability', require('./routes/availability'));
 app.use('/api/moderation', require('./routes/moderation'));
 app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/payment', require('./routes/payment'));
+app.use('/api/ai', require('./routes/ai'));
 
 // Error handler
 app.use((err, req, res, next) => {
@@ -193,10 +194,10 @@ server.listen(PORT, () => {
     console.log(`${signal} received, shutting down gracefully`);
     server.close(() => {
       mongoose.connection.close(() => {
-      console.log('MongoDB connection closed');
-      process.exit(0);
+        console.log('MongoDB connection closed');
+        process.exit(0);
+      });
     });
-  });
   });
 });
 

@@ -5,15 +5,37 @@
 /* Indian Law-Themed Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700;900&family=Playfair+Display:wght@400;600;700;900&family=Poppins:wght@400;500;600;700;800&display=swap');
 
+:root {
+  --background: #F9F6F1;
+  --foreground: #2B2B2B;
+  --primary: #4B1D0F;
+  --secondary: #E07A1F;
+  --accent: #C9A33B;
+  --card: #FFFFFF;
+  --card-border: #E5E7EB;
+  --ivory: #F9F6F1;
+}
+
+[data-theme='dark'] {
+  --background: #0B0E14;
+  --foreground: #F9F6F1;
+  --primary: #8B3D2F; /* Slightly lighter maroon for dark mode */
+  --secondary: #E07A1F;
+  --accent: #C9A33B;
+  --card: #161B22;
+  --card-border: #30363D;
+  --ivory: #161B22;
+}
+
 @layer base {
   html {
     font-family: 'Merriweather', 'Playfair Display', 'Poppins', system-ui, sans-serif;
   }
   
   body {
-    @apply bg-ivory-100 text-charcoal-900;
+    @apply bg-[var(--background)] text-[var(--foreground)];
     line-height: 1.7;
-    background-color: #F9F6F1;
+    transition: background-color 0.3s ease, color 0.3s ease;
     background-image: 
       repeating-linear-gradient(
         90deg,
@@ -25,12 +47,12 @@
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-serif text-charcoal-900;
+    @apply font-serif text-[var(--foreground)];
     font-weight: 700;
   }
   
   * {
-    @apply border-charcoal-200;
+    @apply border-[var(--card-border)];
   }
   
   /* Tricolor accent line */
@@ -66,15 +88,25 @@
   }
   
   .card {
-    @apply bg-white rounded-xl shadow-soft border-2 border-primary-100 p-6;
+    background-color: var(--card);
+    @apply rounded-xl shadow-soft border-2 p-6;
+    border-color: var(--card-border);
   }
   
   .card-hover {
-    @apply bg-white rounded-xl shadow-soft border-2 border-primary-100 p-6 hover:shadow-gold hover:border-accent-300 transition-all duration-300 transform hover:scale-105;
+    background-color: var(--card);
+    @apply rounded-xl shadow-soft border-2 p-6 transition-all duration-300 transform hover:scale-105;
+    border-color: var(--card-border);
+  }
+  .card-hover:hover {
+    @apply shadow-gold;
+    border-color: var(--accent);
   }
   
   .card-law {
-    @apply bg-gradient-to-br from-white to-ivory-50 rounded-xl shadow-maroon border-2 border-primary-200 p-6 relative overflow-hidden;
+    background: linear-gradient(to bottom right, var(--card), var(--ivory));
+    @apply rounded-xl shadow-maroon border-2 p-6 relative overflow-hidden;
+    border-color: var(--card-border);
   }
   
   .card-law::before {

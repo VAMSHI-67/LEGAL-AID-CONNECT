@@ -92,3 +92,18 @@ backend/uploads/*
 # OS
 .DS_Store
 Thumbs.db
+
+# Python / ML
+.venv/
+.venv311/
+__pycache__/
+*.pyc
+mlruns/
+ml_model_v2/data/
+ml_model_v2/models/
+ml_model_v2/reports/
+ml_model_v2/__pycache__/
+mlops/data/
+mlops/models/
+mlops/reports/
+mlops/tracking/

@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { 
-  Scale, 
-  Users, 
-  MessageSquare, 
-  Shield, 
-  ArrowRight, 
+import {
+  Scale,
+  Users,
+  MessageSquare,
+  Shield,
+  ArrowRight,
   CheckCircle,
   Star,
   MapPin,
   Clock,
   FileText
 } from 'lucide-react';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import ScaleWatermark from '../components/ui/ScaleWatermark';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'client' | 'lawyer'>('client');
@@ -111,45 +114,42 @@ export default function Home() {
                 <span className="text-accent-200 font-semibold">Justice Made Accessible for Every Indian</span>
               </p>
             </div>
-            
+
             {/* Role Selection */}
-            <div className="card-law p-10 max-w-2xl mx-auto mb-12 animate-scale-in">
+            <Card variant="law" className="p-10 max-w-2xl mx-auto mb-12 animate-scale-in">
               <h3 className="text-xl font-serif font-bold text-charcoal-900 mb-6 text-center">Choose Your Path</h3>
               <div className="flex space-x-4">
                 <button
                   onClick={() => setActiveTab('client')}
-                  className={`flex-1 py-4 px-6 rounded-xl border-3 transition-all duration-300 transform hover:scale-105 ${
-                    activeTab === 'client'
+                  className={`flex-1 py-4 px-6 rounded-xl border-3 transition-all duration-300 transform hover:scale-105 ${activeTab === 'client'
                       ? 'border-accent-500 bg-gradient-to-br from-accent-50 to-secondary-50 text-primary-900 shadow-gold'
                       : 'border-charcoal-300 text-charcoal-700 hover:border-secondary-400 bg-white'
-                  }`}
+                    }`}
                 >
                   <Users className="w-6 h-6 mx-auto mb-2" />
                   <span className="font-heading font-bold">Client</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('lawyer')}
-                  className={`flex-1 py-4 px-6 rounded-xl border-3 transition-all duration-300 transform hover:scale-105 ${
-                    activeTab === 'lawyer'
+                  className={`flex-1 py-4 px-6 rounded-xl border-3 transition-all duration-300 transform hover:scale-105 ${activeTab === 'lawyer'
                       ? 'border-accent-500 bg-gradient-to-br from-accent-50 to-secondary-50 text-primary-900 shadow-gold'
                       : 'border-charcoal-300 text-charcoal-700 hover:border-secondary-400 bg-white'
-                  }`}
+                    }`}
                 >
-                  <Scale className="w-6 h-6 mx-auto mb-2" />
+                  <Users className="w-6 h-6 mx-auto mb-2" />
                   <span className="font-heading font-bold">Lawyer</span>
                 </button>
               </div>
-              
+
               <div className="mt-8">
-                <Link 
-                  href={`/auth/register?role=${activeTab}`}
-                  className="btn-gold w-full flex items-center justify-center text-lg"
-                >
-                  Get Started as {activeTab === 'client' ? 'Client' : 'Lawyer'}
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                <Link href={`/auth/register?role=${activeTab}`} passHref>
+                  <Button variant="gold" className="w-full text-lg">
+                    Get Started as {activeTab === 'client' ? 'Client' : 'Lawyer'}
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
                 </Link>
               </div>
-            </div>
+            </Card>
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
@@ -171,18 +171,18 @@ export default function Home() {
                 Why Choose <span className="gradient-text-gold">LegalAid Connect?</span>
               </h2>
               <p className="text-xl text-charcoal-700 max-w-3xl mx-auto leading-relaxed">
-                Our platform combines cutting-edge technology with legal expertise 
+                Our platform combines cutting-edge technology with legal expertise
                 to provide you with the best possible legal assistance experience.
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
               {features.map((feature, index) => (
-                <div key={index} className="card-law text-center group hover:shadow-gold transition-all duration-300">
+                <Card key={index} variant="law" className="text-center group hover:shadow-gold transition-all duration-300 p-8">
                   <div className="flex justify-center mb-6 transform group-hover:scale-110 transition-transform duration-300">{feature.icon}</div>
                   <h3 className="text-xl font-serif font-bold text-primary-900 mb-4">{feature.title}</h3>
                   <p className="text-charcoal-700 leading-relaxed">{feature.description}</p>
-                </div>
+                </Card>
               ))}
             </div>
           </div>
@@ -197,7 +197,7 @@ export default function Home() {
                 How It <span className="gradient-text">Works</span>
               </h2>
               <p className="text-xl text-charcoal-700 max-w-3xl mx-auto leading-relaxed">
-                Getting legal help has never been easier. Follow these simple steps 
+                Getting legal help has never been easier. Follow these simple steps
                 to connect with the right lawyer for your case.
               </p>
             </div>
@@ -209,29 +209,29 @@ export default function Home() {
                 </div>
                 <h3 className="text-2xl font-serif font-bold text-primary-900 mb-4">Post Your Case</h3>
                 <p className="text-charcoal-700 leading-relaxed">
-                  Describe your legal issue and provide relevant details. 
+                  Describe your legal issue and provide relevant details.
                   Our system will analyze your requirements.
                 </p>
               </div>
-              
+
               <div className="text-center group">
                 <div className="bg-gradient-to-br from-accent-400 to-secondary-500 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-gold transform group-hover:scale-110 transition-all duration-300">
                   <span className="text-3xl font-serif font-bold text-white">2</span>
                 </div>
                 <h3 className="text-2xl font-serif font-bold text-primary-900 mb-4">Get Matched</h3>
                 <p className="text-charcoal-700 leading-relaxed">
-                  Our intelligent algorithm matches you with qualified lawyers 
+                  Our intelligent algorithm matches you with qualified lawyers
                   based on expertise, location, and availability.
                 </p>
               </div>
-              
+
               <div className="text-center group">
                 <div className="bg-gradient-to-br from-accent-400 to-secondary-500 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-gold transform group-hover:scale-110 transition-all duration-300">
                   <span className="text-3xl font-serif font-bold text-white">3</span>
                 </div>
                 <h3 className="text-2xl font-serif font-bold text-primary-900 mb-4">Connect & Resolve</h3>
                 <p className="text-charcoal-700 leading-relaxed">
-                  Communicate directly with your lawyer, share documents, 
+                  Communicate directly with your lawyer, share documents,
                   and track your case progress in real-time.
                 </p>
               </div>
@@ -247,7 +247,7 @@ export default function Home() {
                 Comprehensive <span className="gradient-text-gold">Legal Coverage</span>
               </h2>
               <p className="text-xl text-charcoal-700 max-w-3xl mx-auto leading-relaxed">
-                Our platform covers a wide range of legal domains, ensuring 
+                Our platform covers a wide range of legal domains, ensuring
                 you find expertise in any area of law you need.
               </p>
             </div>
@@ -272,7 +272,7 @@ export default function Home() {
               Ready to Get <span className="text-accent-300">Started?</span>
             </h2>
             <p className="text-xl text-ivory-100 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Join thousands of clients and lawyers who trust LegalAid Connect 
+              Join thousands of clients and lawyers who trust LegalAid Connect
               for their legal needs. Start your journey today.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
@@ -303,7 +303,7 @@ export default function Home() {
                   Making legal access accessible to every Indian through technology.
                 </p>
               </div>
-              
+
               <div>
                 <h3 className="text-lg font-heading font-bold mb-6 text-accent-300">Platform</h3>
                 <ul className="space-y-3 text-ivory-200">
@@ -313,7 +313,7 @@ export default function Home() {
                   <li><Link href="/about" className="hover:text-accent-300 transition-colors flex items-center"><ArrowRight className="w-4 h-4 mr-2" />About Us</Link></li>
                 </ul>
               </div>
-              
+
               <div>
                 <h3 className="text-lg font-heading font-bold mb-6 text-accent-300">Support</h3>
                 <ul className="space-y-3 text-ivory-200">
@@ -323,7 +323,7 @@ export default function Home() {
                   <li><Link href="/terms" className="hover:text-accent-300 transition-colors flex items-center"><ArrowRight className="w-4 h-4 mr-2" />Terms of Service</Link></li>
                 </ul>
               </div>
-              
+
               <div>
                 <h3 className="text-lg font-heading font-bold mb-6 text-accent-300">Connect</h3>
                 <ul className="space-y-3 text-ivory-200">
@@ -333,7 +333,7 @@ export default function Home() {
                 </ul>
               </div>
             </div>
-            
+
             <div className="border-t-2 border-accent-500/30 mt-12 pt-8">
               <div className="flex flex-col md:flex-row justify-between items-center text-ivory-200">
                 <p className="font-heading mb-4 md:mb-0">

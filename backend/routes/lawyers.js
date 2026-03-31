@@ -1,7 +1,7 @@
 const express = require('express');
 const { auth } = require('../middleware/auth');
 const User = require('../models/User');
-const matchmaking = require('../utils/matchmaking');
+const matchmakingPipeline = require('../utils/matchmakingPipeline');
 
 const router = express.Router();
 
@@ -68,7 +68,11 @@ router.get('/matches', auth, async (req, res) => {
     if (caseDoc.clientId.toString() !== req.user._id.toString() && (!caseDoc.lawyerId || caseDoc.lawyerId.toString() !== req.user._id.toString()) && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Not authorized to view matches for this case' });
     }
-    const matches = await matchmaking.findMatchedLawyers(caseDoc.toObject(), parseInt(limit) || 10, { includeUnverified: true });
+    const matches = await matchmakingPipeline.findRankedMatches(caseDoc.toObject(), parseInt(limit) || 10, {
+      includeUnverified: true,
+      stage: 'shortlist',
+      shownToUser: true,
+    });
     res.json({ success: true, data: matches });
   } catch (error) {
     console.error('Match retrieval error:', error);

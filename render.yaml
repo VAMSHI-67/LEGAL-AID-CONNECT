@@ -1,0 +1,70 @@
+services:
+  - name: legalaid-connect-backend
+    type: web
+    runtime: node
+    plan: free
+    region: singapore
+    autoDeployTrigger: commit
+    buildCommand: npm ci
+    startCommand: node backend/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: legalaid-connect-frontend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: BACKEND_URL
+        envVarKey: RENDER_EXTERNAL_URL
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  - name: legalaid-connect-frontend
+    type: web
+    runtime: node
+    plan: free
+    region: singapore
+    autoDeployTrigger: commit
+    buildCommand: npm ci && npm run build
+    startCommand: sh -c 'npx next start -p ${PORT:-10000}'
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: legalaid-connect-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: API_URL
+        fromService:
+          type: web
+          name: legalaid-connect-backend
+          envVarKey: RENDER_EXTERNAL_URL

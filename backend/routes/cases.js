@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const { auth } = require('../middleware/auth');
 const Case = require('../models/Case');
 const User = require('../models/User');
-const matchmaking = require('../utils/matchmaking');
+const matchmakingPipeline = require('../utils/matchmakingPipeline');
+const matchmakingConfig = require('../config/matchmaking');
+const MatchEvent = require('../models/MatchEvent');
 const Notification = require('../models/Notification');
 
 const router = express.Router();
@@ -25,6 +27,32 @@ function sanitizeContent(str = '') {
 
 // Helper: base projection for lawyer info
 const LAWYER_PUBLIC_FIELDS = 'name email specialization experience rating availability languages location barNumber barState';
+
+async function logMatchOutcome({
+  caseId,
+  clientId,
+  lawyerId,
+  stage,
+  assigned = false,
+  accepted = false,
+  declined = false,
+  metadata = {},
+}) {
+  try {
+    await MatchEvent.create({
+      caseId,
+      clientId,
+      lawyerId,
+      stage,
+      assigned,
+      accepted,
+      declined,
+      metadata,
+    });
+  } catch (error) {
+    console.warn(`Match outcome logging failed (${stage}):`, error.message);
+  }
+}
 
 // @route   GET /api/cases
 // @desc    Get cases for the authenticated user (role-based) or all for admin; supports status filtering
@@ -101,11 +129,15 @@ router.post('/', auth, async (req, res) => {
     // Attempt auto-assignment via matchmaking (development: include unverified)
     let assignedMatch = null;
     try {
-      const matches = await matchmaking.findMatchedLawyers(newCase.toObject(), 3, { includeUnverified: true });
+      const matches = await matchmakingPipeline.findRankedMatches(newCase.toObject(), 3, {
+        includeUnverified: true,
+        stage: 'assigned',
+        assigned: true,
+      });
       if (matches && matches.length > 0) {
         // Choose top match above a minimum score threshold
         const top = matches[0];
-        if (top.score >= 40) { // threshold can be tuned
+        if (top.score >= matchmakingConfig.autoAssignThreshold) {
           newCase.lawyerId = top.lawyer._id;
           newCase.status = 'assigned';
           const assignedAt = new Date();
@@ -123,8 +155,22 @@ router.post('/', auth, async (req, res) => {
           assignedMatch = {
             lawyer: top.lawyer,
             score: top.score,
-            reasons: top.matchReasons
+            reasons: top.matchReasons,
+            source: top.matchSource,
+            modelVersion: top.modelVersion
           };
+          await logMatchOutcome({
+            caseId: newCase._id,
+            clientId: newCase.clientId,
+            lawyerId: top.lawyer._id,
+            stage: 'assigned',
+            assigned: true,
+            metadata: {
+              score: top.score,
+              source: top.matchSource,
+              modelVersion: top.modelVersion
+            }
+          });
           console.log(`🤝 Auto-assigned lawyer ${top.lawyer._id} to case ${newCase._id} (score ${top.score})`);
         } else {
           console.log('ℹ️ Top match score below threshold; leaving case unassigned. Score:', top.score);
@@ -259,7 +305,10 @@ router.post('/:id/rematch', auth, async (req, res) => {
     const currentLawyerId = caseDoc.lawyerId ? caseDoc.lawyerId._id.toString() : null;
     let matches = [];
     try {
-      matches = await matchmaking.findMatchedLawyers(rawCase, 5, { includeUnverified: true });
+      matches = await matchmakingPipeline.findRankedMatches(rawCase, 5, {
+        includeUnverified: true,
+        stage: 'shortlist',
+      });
     } catch (e) {
       console.error('Rematch matchmaking error:', e.message);
       return res.status(500).json({ success: false, message: 'Matchmaking failed', error: e.message });
@@ -296,6 +345,19 @@ router.post('/:id/rematch', auth, async (req, res) => {
     caseDoc.assignmentHistory.push({ lawyerId: top.lawyer._id, score: top.score, reasons: top.matchReasons, assignedAt: now, reason: 'Rematch reassignment' });
     caseDoc.timeline.push({ action: 'Lawyer re-assigned', description: 'Lawyer changed via rematch', performedBy: req.user._id, timestamp: now });
     await caseDoc.save();
+    await logMatchOutcome({
+      caseId: caseDoc._id,
+      clientId: caseDoc.clientId?._id || caseDoc.clientId,
+      lawyerId: top.lawyer._id,
+      stage: 'assigned',
+      assigned: true,
+      metadata: {
+        score: top.score,
+        source: top.matchSource,
+        modelVersion: top.modelVersion,
+        reason: 'rematch'
+      }
+    });
     // Increment totalCases only if this lawyer hasn't been assigned to this case before
     const hasPrior = caseDoc.assignmentHistory.filter(h => h.lawyerId.toString() === top.lawyer._id.toString()).length > 1;
     if (!hasPrior) {
@@ -314,7 +376,18 @@ router.post('/:id/rematch', auth, async (req, res) => {
       .populate('clientId', 'name email')
       .populate('lawyerId', LAWYER_PUBLIC_FIELDS);
 
-    res.json({ success: true, message: 'Case reassigned', data: updated, assignedMatch: { lawyer: top.lawyer, score: top.score, reasons: top.matchReasons } });
+    res.json({
+      success: true,
+      message: 'Case reassigned',
+      data: updated,
+      assignedMatch: {
+        lawyer: top.lawyer,
+        score: top.score,
+        reasons: top.matchReasons,
+        source: top.matchSource,
+        modelVersion: top.modelVersion
+      }
+    });
   } catch (error) {
     console.error('❌ Rematch error:', error);
     res.status(500).json({ success: false, message: 'Server error during rematch', error: error.message });
@@ -359,6 +432,14 @@ router.post('/:id/assign', auth, async (req, res) => {
     caseDoc.assignmentHistory.push({ lawyerId: lawyer._id, assignedAt: now, reason: 'Manual assignment' });
     caseDoc.timeline.push({ action: 'Lawyer assigned (manual)', performedBy: req.user._id, timestamp: now });
     await caseDoc.save();
+    await logMatchOutcome({
+      caseId: caseDoc._id,
+      clientId: caseDoc.clientId,
+      lawyerId: lawyer._id,
+      stage: 'assigned',
+      assigned: true,
+      metadata: { reason: 'manual-assignment' }
+    });
     // Increment totalCases only if first time
     const repeatCount = caseDoc.assignmentHistory.filter(h => h.lawyerId.toString() === lawyer._id.toString()).length;
     if (repeatCount === 1) await User.findByIdAndUpdate(lawyer._id, { $inc: { totalCases: 1 } });
@@ -452,6 +533,14 @@ router.post('/:id/accept', auth, async (req, res) => {
     }
     caseDoc.timeline.push({ action: 'Lawyer accepted case', performedBy: req.user._id, timestamp: new Date() });
     await caseDoc.save();
+    await logMatchOutcome({
+      caseId: caseDoc._id,
+      clientId: caseDoc.clientId,
+      lawyerId: req.user._id,
+      stage: 'accepted',
+      assigned: true,
+      accepted: true
+    });
     try {
       await Notification.create({ userId: caseDoc.clientId, title: 'Case In Progress', message: 'Your lawyer accepted the case.', type: 'success', relatedId: String(caseDoc._id) });
     } catch(e){ /* ignore */ }
@@ -486,6 +575,13 @@ router.post('/:id/decline', auth, async (req, res) => {
     caseDoc.lawyerAccepted = false;
     caseDoc.status = 'pending';
     await caseDoc.save();
+    await logMatchOutcome({
+      caseId: caseDoc._id,
+      clientId: caseDoc.clientId,
+      lawyerId: previousLawyerId,
+      stage: 'declined',
+      declined: true
+    });
     try {
       await Notification.create({ userId: caseDoc.clientId, title: 'Lawyer Declined', message: 'Assigned lawyer declined. Searching for another.', type: 'warning', relatedId: String(caseDoc._id) });
       await Notification.create({ userId: previousLawyerId, title: 'Case Declined', message: 'You have declined the case.', type: 'info', relatedId: String(caseDoc._id) });

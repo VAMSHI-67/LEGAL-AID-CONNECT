@@ -1,0 +1,1 @@
+"""\nEndpoint placeholders for v2 inference.\nExtend this module when the FT-Transformer inference pipeline is ready.\n"""\n\n# Intentionally left minimal for safety.\n
