@@ -6,9 +6,27 @@ import ChatRoomList from '@/components/chat/ChatRoomList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import { Scale, MessageSquare, Search } from 'lucide-react';
 
+interface RoomParticipant {
+    name: string;
+    profilePicture?: string;
+}
+
+interface RoomSummary {
+    id: string;
+    title: string;
+    status: string;
+    category: string;
+    participant: RoomParticipant;
+    unreadCount: number;
+    lastMessage?: {
+        content: string;
+        createdAt: string;
+    };
+}
+
 const MessagesPage = () => {
     const { user, isAuthenticated, isLoading } = useAuth();
-    const [rooms, setRooms] = useState([]);
+    const [rooms, setRooms] = useState<RoomSummary[]>([]);
     const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -39,7 +57,7 @@ const MessagesPage = () => {
         }
     };
 
-    const activeRoom = rooms.find((r: any) => r.id === activeRoomId);
+    const activeRoom = rooms.find((r) => r.id === activeRoomId);
 
     return (
         <div className="min-h-[calc(100vh-64px)] bg-[var(--background)] flex flex-col md:flex-row overflow-hidden">
@@ -69,7 +87,7 @@ const MessagesPage = () => {
 
                 <div className="flex-1 overflow-hidden">
                     <ChatRoomList
-                        rooms={rooms.filter((r: any) =>
+                        rooms={rooms.filter((r) =>
                             r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             r.participant.name.toLowerCase().includes(searchQuery.toLowerCase())
                         )}
