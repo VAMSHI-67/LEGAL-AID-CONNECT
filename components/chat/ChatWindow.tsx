@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Loader2, User, FileText, Download } from 'lucide-react';
+import { Send, Paperclip, Loader2, User, FileText, Download, MessageSquare } from 'lucide-react';
 import { useSocket } from '@/contexts/SocketContext';
 import { useAuth } from '@/contexts/AuthContext';
 import axios from 'axios';
