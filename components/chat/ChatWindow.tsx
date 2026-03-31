@@ -169,7 +169,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ roomId, roomTitle }) => {
                     </div>
                 ) : (
                     messages.map((msg, idx) => {
-                        const isMe = msg.senderId._id === user?.id || (typeof msg.senderId === 'string' && msg.senderId === user?.id);
+                        const isMe = msg.senderId._id === user?._id || (typeof msg.senderId === 'string' && msg.senderId === user?._id);
                         return (
                             <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[80%] rounded-2xl p-3 shadow-soft ${isMe
